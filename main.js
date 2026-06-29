@@ -310,6 +310,60 @@ function init() {
     });
   }
 
+  // 9b. Render Deep Road Nodes (plotted onto the SVG; coords match its viewBox)
+  const deepSvg = document.querySelector('#deepwrap .deepmap');
+  const dp = $('#deeppanel');
+  if (deepSvg && dp) {
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    const dpClose = dp.querySelector('.mappanel-close');
+    const dpContent = dp.querySelector('.mappanel-content');
+
+    DEEPNODES.forEach(d => {
+      const cls = d.kind === 'dread' ? 'dn-dread' : (d.visited ? 'dn-visited' : 'dn-rumor');
+      const g = document.createElementNS(SVGNS, 'g');
+      g.setAttribute('class', 'dnode ' + cls);
+      g.setAttribute('tabindex', '0');
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', d.name);
+
+      const circle = document.createElementNS(SVGNS, 'circle');
+      circle.setAttribute('cx', d.x);
+      circle.setAttribute('cy', d.y);
+      circle.setAttribute('r', d.kind === 'dread' ? 6 : 7);
+      g.appendChild(circle);
+
+      // Labels near the right edge anchor leftward so they stay on-map.
+      const onRight = d.x > 480;
+      const label = document.createElementNS(SVGNS, 'text');
+      label.setAttribute('class', 'dlabel');
+      label.setAttribute('x', onRight ? d.x - 14 : d.x + 14);
+      label.setAttribute('y', d.y + 5);
+      if (onRight) label.setAttribute('text-anchor', 'end');
+      label.textContent = d.name;
+      g.appendChild(label);
+
+      function select() {
+        deepSvg.querySelectorAll('.dnode').forEach(x => x.classList.remove('dsel'));
+        g.classList.add('dsel');
+        dpContent.innerHTML = `<h4>${d.name}</h4><p>${d.blurb}</p>`;
+        if (dpClose) dpClose.style.display = 'block';
+      }
+      g.addEventListener('click', select);
+      g.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); }
+      });
+      deepSvg.appendChild(g);
+    });
+
+    if (dpClose) {
+      dpClose.addEventListener('click', () => {
+        deepSvg.querySelectorAll('.dnode').forEach(x => x.classList.remove('dsel'));
+        dpContent.innerHTML = `<h4>The Deep Roads</h4><p>Click a marker to read Despona&rsquo;s notes.</p>`;
+        dpClose.style.display = 'none';
+      });
+    }
+  }
+
   // (Temporal slider is initialised by initTemporalSlider() later in init().)
 
   // Set fixed aspect-ratio dynamically for Deep Roads map wrapper
@@ -524,8 +578,15 @@ function init() {
 function initTemporalSlider() {
   const range = document.getElementById('tsrange');
   const valEl = document.getElementById('tsval');
-  // Derive "now" from the latest session in the data, not a hardcoded value.
-  const NOW = SESSIONS.length ? SESSIONS[SESSIONS.length - 1].id : (+range.max || 1);
+  // The session data is the single source of truth for the slider's span.
+  if (!SESSIONS.length) {
+    range.disabled = true;
+    valEl.textContent = '—';
+    return;
+  }
+  const FIRST = SESSIONS[0].id;
+  const NOW = SESSIONS[SESSIONS.length - 1].id;
+  range.min = FIRST;
   range.max = NOW;
   range.value = NOW;
 
